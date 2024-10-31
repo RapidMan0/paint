@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paint на JS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="controls">
+  <input type="color" id="colorPicker">
+  <input type="range" id="thicknessRange" min="1" max="10" value="5">
+  <button id="saveBtn">Скачать PNG</button>
+  <input type="file" id="uploadBtn" accept="image/*">
+  <button id="clearCanvasBtn">Очистить холст</button>
+  <button id="eraseBtn">Режим стирания</button>
+</div>
+<canvas id="canvas" width="800" height="600"></canvas>
+<script src="script.js"></script>
+</body>
+</html>
