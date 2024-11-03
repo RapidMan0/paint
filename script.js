@@ -7,7 +7,8 @@ class CanvasDrawer {
     uploadBtnId,
     clearCanvasBtnId,
     eraseBtnId,
-    fillBtnId
+    fillBtnId,
+    bezierBtnId // Новый аргумент для кнопки рисования кривых Безье
   ) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext("2d");
@@ -18,9 +19,12 @@ class CanvasDrawer {
     this.clearCanvasBtn = document.getElementById(clearCanvasBtnId);
     this.eraseBtn = document.getElementById(eraseBtnId);
     this.fillBtn = document.getElementById(fillBtnId);
+    this.bezierBtn = document.getElementById(bezierBtnId); // Привязка к кнопке
     this.painting = false;
     this.erasing = false;
     this.filling = false;
+    this.drawingBezier = false; // Новое состояние для рисования Безье
+    this.controlPoints = []; // Массив контрольных точек
 
     this.init();
   }
@@ -43,12 +47,27 @@ class CanvasDrawer {
     this.clearCanvasBtn.addEventListener("click", () => this.clearCanvas());
     this.eraseBtn.addEventListener("click", () => this.toggleEraser());
     this.fillBtn.addEventListener("click", () => this.toggleFillMode());
+    this.bezierBtn.addEventListener("click", () => this.toggleBezierMode()); // Обработчик для кнопки Безье
+  }
+
+  toggleBezierMode() {
+    this.drawingBezier = !this.drawingBezier;
+    this.bezierBtn.textContent = this.drawingBezier ? "Режим рисования" : "Режим кривых Безье";
+    this.controlPoints = []; // Сбрасываем контрольные точки
   }
 
   startPosition(e) {
     if (this.filling) return; // Отключаем рисование при активной заливке
-    this.painting = true;
-    this.draw(e);
+    if (this.drawingBezier) {
+      this.controlPoints.push({ x: e.clientX - this.canvas.offsetLeft, y: e.clientY - this.canvas.offsetTop });
+      if (this.controlPoints.length === 3) { // Если три точки, рисуем Безье
+        this.drawBezier();
+        this.controlPoints = []; // Сбрасываем точки после рисования
+      }
+    } else {
+      this.painting = true;
+      this.draw(e);
+    }
   }
 
   endPosition() {
@@ -71,6 +90,24 @@ class CanvasDrawer {
       e.clientX - this.canvas.offsetLeft,
       e.clientY - this.canvas.offsetTop
     );
+  }
+
+  drawBezier() {
+    if (this.controlPoints.length < 3) return;
+
+    const [p0, p1, p2] = this.controlPoints;
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(p0.x, p0.y);
+    this.ctx.bezierCurveTo(
+      p1.x, p1.y,
+      p1.x, p1.y,
+      p2.x, p2.y
+    );
+    this.ctx.strokeStyle = this.colorPicker.value;
+    this.ctx.lineWidth = this.thicknessRange.value;
+    this.ctx.stroke();
+    this.ctx.closePath();
   }
 
   toggleFillMode() {
@@ -183,5 +220,6 @@ const drawer = new CanvasDrawer(
   "uploadBtn",
   "clearCanvasBtn",
   "eraseBtn",
-  "fillBtn" // Новый аргумент для кнопки заливки
+  "fillBtn", // Новый аргумент для кнопки заливки
+  "bezierBtn" // Новый аргумент для кнопки Безье
 );
