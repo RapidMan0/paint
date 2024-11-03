@@ -97,18 +97,25 @@ class CanvasDrawer {
 
     const [p0, p1, p2] = this.controlPoints;
 
+    // Рисуем кривую Безье
     this.ctx.beginPath();
     this.ctx.moveTo(p0.x, p0.y);
-    this.ctx.bezierCurveTo(
-      p1.x, p1.y,
-      p1.x, p1.y,
-      p2.x, p2.y
-    );
+    this.ctx.bezierCurveTo(p1.x, p1.y, p1.x, p1.y, p2.x, p2.y);
     this.ctx.strokeStyle = this.colorPicker.value;
     this.ctx.lineWidth = this.thicknessRange.value;
     this.ctx.stroke();
     this.ctx.closePath();
-  }
+
+    // Рисуем маленькие круги на каждой из контрольных точек
+    this.ctx.fillStyle = "red";
+    [p0, p1, p2].forEach((point) => {
+        this.ctx.beginPath();
+        this.ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.closePath();
+    });
+}
+
 
   toggleFillMode() {
     this.filling = !this.filling;
