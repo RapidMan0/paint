@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,10 +17,15 @@
     <button id="clearCanvasBtn">Очистить холст</button>
     <button id="eraseBtn">Режим стирания</button>
     <button id="fillBtn">Заливка</button>
-    <button id="rectangleBtn">Прямоугольник</button>
-    <button id="lineBtn">Линия</button>
-    <button id="circleBtn">Круг</button>
-    <button id="bezierBtn">BIZE</button> <!-- Исправленный идентификатор -->
+    <button id="bezierBtn">BIZE</button>
+    <label for="drawingMode">Режим рисования:</label>
+    <select id="drawingMode">
+      <option value="free">Свободное рисование</option>
+      <option value="circle">Круг</option>
+      <option value="square">Квадрат</option>
+      <option value="triangle">Треугольник</option>
+    </select>
+    <!-- Исправленный идентификатор -->
   </div>
   <canvas id="canvas" width="800" height="600"></canvas>
   <script src="script.js"></script>
