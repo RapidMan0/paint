@@ -8,10 +8,11 @@ class CanvasDrawer {
     clearCanvasBtnId,
     eraseBtnId,
     fillBtnId,
-    bezierBtnId // Новый аргумент для кнопки рисования кривых Безье
+    bezierBtnId
   ) {
     this.canvas = document.getElementById(canvasId);
-    this.ctx = this.canvas.getContext("2d");
+    // Добавляем willReadFrequently: true для оптимизации операций getImageData
+    this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
     this.colorPicker = document.getElementById(colorPickerId);
     this.thicknessRange = document.getElementById(thicknessRangeId);
     this.saveBtn = document.getElementById(saveBtnId);
@@ -19,13 +20,14 @@ class CanvasDrawer {
     this.clearCanvasBtn = document.getElementById(clearCanvasBtnId);
     this.eraseBtn = document.getElementById(eraseBtnId);
     this.fillBtn = document.getElementById(fillBtnId);
-    this.bezierBtn = document.getElementById(bezierBtnId); // Привязка к кнопке
+    this.bezierBtn = document.getElementById(bezierBtnId);
     this.painting = false;
     this.erasing = false;
     this.filling = false;
-    this.drawingBezier = false; // Новое состояние для рисования Безье
-    this.controlPoints = []; // Массив контрольных точек
-
+    this.drawingBezier = false;
+    this.controlPoints = [];
+    this.bezierCurves = [];
+    this.selectedPoint = null;
     this.init();
   }
 
@@ -50,19 +52,26 @@ class CanvasDrawer {
     this.bezierBtn.addEventListener("click", () => this.toggleBezierMode()); // Обработчик для кнопки Безье
   }
 
-  toggleBezierMode() {
-    this.drawingBezier = !this.drawingBezier;
-    this.bezierBtn.textContent = this.drawingBezier ? "Режим рисования" : "Режим кривых Безье";
-    this.controlPoints = []; // Сбрасываем контрольные точки
-  }
-
   startPosition(e) {
+    const x = e.clientX - this.canvas.offsetLeft;
+    const y = e.clientY - this.canvas.offsetTop;
+
     if (this.filling) return; // Отключаем рисование при активной заливке
+
     if (this.drawingBezier) {
-      this.controlPoints.push({ x: e.clientX - this.canvas.offsetLeft, y: e.clientY - this.canvas.offsetTop });
-      if (this.controlPoints.length === 3) { // Если три точки, рисуем Безье
-        this.drawBezier();
-        this.controlPoints = []; // Сбрасываем точки после рисования
+      const point = this.getControlPointAt(x, y);
+      if (point) {
+        this.selectedPoint = point;
+      } else {
+        this.controlPoints.push({
+          x,
+          y
+        });
+        if (this.controlPoints.length === 3) { // Если три точки, рисуем Безье
+          this.bezierCurves.push([...this.controlPoints]); // Сохраняем текущую кривую
+          this.controlPoints = []; // Очищаем контрольные точки для новой кривой
+          this.redrawCanvas();
+        }
       }
     } else {
       this.painting = true;
@@ -72,30 +81,59 @@ class CanvasDrawer {
 
   endPosition() {
     this.painting = false;
+    this.selectedPoint = null;
     this.ctx.beginPath();
   }
 
   draw(e) {
-    if (!this.painting) return;
-    this.ctx.lineWidth = this.thicknessRange.value;
-    this.ctx.lineCap = "round";
-    this.ctx.strokeStyle = this.erasing ? "#f0f0f0" : this.colorPicker.value;
-    this.ctx.lineTo(
-      e.clientX - this.canvas.offsetLeft,
-      e.clientY - this.canvas.offsetTop
-    );
-    this.ctx.stroke();
-    this.ctx.beginPath();
-    this.ctx.moveTo(
-      e.clientX - this.canvas.offsetLeft,
-      e.clientY - this.canvas.offsetTop
-    );
+    const x = e.clientX - this.canvas.offsetLeft;
+    const y = e.clientY - this.canvas.offsetTop;
+
+    if (!this.painting && !this.selectedPoint) return;
+
+    if (this.selectedPoint) {
+      this.selectedPoint.x = x;
+      this.selectedPoint.y = y;
+      this.redrawCanvas();
+    } else {
+      this.ctx.lineWidth = this.thicknessRange.value;
+      this.ctx.lineCap = "round";
+      this.ctx.strokeStyle = this.erasing ? "#f0f0f0" : this.colorPicker.value;
+      this.ctx.lineTo(x, y);
+      this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, y);
+    }
   }
 
-  drawBezier() {
-    if (this.controlPoints.length < 3) return;
+  getControlPointAt(x, y) {
+    for (const curve of this.bezierCurves) {
+      for (const point of curve) {
+        if (Math.hypot(point.x - x, point.y - y) < 10) {
+          return point;
+        }
+      }
+    }
+    return null;
+  }
 
-    const [p0, p1, p2] = this.controlPoints;
+  toggleBezierMode() {
+    this.drawingBezier = !this.drawingBezier;
+    this.bezierBtn.textContent = this.drawingBezier ? "Режим рисования" : "Режим кривых Безье";
+    this.controlPoints = []; // Сбрасываем контрольные точки
+    this.selectedPoint = null; // Сбрасываем выбранную точку
+    this.redrawCanvas(); // Перерисовываем холст
+  }
+
+  redrawCanvas() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.bezierCurves.forEach(curve => this.drawBezier(curve));
+  }
+
+  drawBezier(curve) {
+    if (curve.length < 3) return;
+
+    const [p0, p1, p2] = curve;
 
     // Рисуем кривую Безье
     this.ctx.beginPath();
@@ -106,17 +144,18 @@ class CanvasDrawer {
     this.ctx.stroke();
     this.ctx.closePath();
 
-    // Рисуем маленькие круги на каждой из контрольных точек
-    this.ctx.fillStyle = "red";
-    [p0, p1, p2].forEach((point) => {
+    // Рисуем маленькие круги на каждой из контрольных точек только при включенном режиме Безье
+    if (this.drawingBezier) {
+      this.ctx.fillStyle = "red";
+      [p0, p1, p2].forEach((point) => {
         this.ctx.beginPath();
         this.ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.closePath();
-    });
-}
-
-
+      });
+    }
+  }
+  
   toggleFillMode() {
     this.filling = !this.filling;
     this.fillBtn.textContent = this.filling ? "Режим рисования" : "Заливка";
@@ -149,8 +188,14 @@ class CanvasDrawer {
   }
 
   floodFill(imageData, x, y, targetColor, fillColor) {
-    const stack = [[x, y]];
-    const { width, height, data } = imageData;
+    const stack = [
+      [x, y]
+    ];
+    const {
+      width,
+      height,
+      data
+    } = imageData;
     const visit = new Array(width * height).fill(false);
 
     while (stack.length) {
@@ -208,13 +253,15 @@ class CanvasDrawer {
 
   clearCanvas() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.controlPoints = []; // Сбрасываем контрольные точки
+    this.bezierCurves = []; // Сбрасываем все кривые Безье
   }
 
   toggleEraser() {
     this.erasing = !this.erasing;
-    this.eraseBtn.textContent = this.erasing
-      ? "Режим рисования"
-      : "Режим стирания";
+    this.eraseBtn.textContent = this.erasing ?
+      "Режим рисования" :
+      "Режим стирания";
   }
 }
 
@@ -227,6 +274,6 @@ const drawer = new CanvasDrawer(
   "uploadBtn",
   "clearCanvasBtn",
   "eraseBtn",
-  "fillBtn", // Новый аргумент для кнопки заливки
-  "bezierBtn" // Новый аргумент для кнопки Безье
+  "fillBtn",
+  "bezierBtn"
 );

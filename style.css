@@ -1,16 +1,15 @@
 body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 100vh;
-    background-color: #f0f0f0;
-  }
-  
-  .controls {
-    margin-bottom: 10px;
-  }
-  
-  canvas {
-    border: 1px solid #000;
-  }
-  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100vh;
+  background-color: #f0f0f0;
+}
+
+.controls {
+  margin-bottom: 10px;
+}
+
+canvas {
+  border: 5px solid rgb(174, 0, 255);
+}
