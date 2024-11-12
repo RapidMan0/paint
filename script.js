@@ -8,18 +8,17 @@ class CanvasDrawer {
     clearCanvasBtnId,
     eraseBtnId,
     fillBtnId,
-    bezierBtnId
+    bezierBtnId,
+    drawingModeId
   ) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
-
     this.drawingCanvas = document.createElement("canvas");
     this.drawingCanvas.width = this.canvas.width;
     this.drawingCanvas.height = this.canvas.height;
     this.drawingCtx = this.drawingCanvas.getContext("2d", {
       willReadFrequently: true,
     });
-
     this.colorPicker = document.getElementById(colorPickerId);
     this.thicknessRange = document.getElementById(thicknessRangeId);
     this.saveBtn = document.getElementById(saveBtnId);
@@ -28,14 +27,18 @@ class CanvasDrawer {
     this.eraseBtn = document.getElementById(eraseBtnId);
     this.fillBtn = document.getElementById(fillBtnId);
     this.bezierBtn = document.getElementById(bezierBtnId);
+    this.drawingModeSelect = document.getElementById(drawingModeId);
     this.painting = false;
     this.erasing = false;
     this.filling = false;
     this.drawingBezier = false;
+    this.currentShape = "free"; // Добавляем текущую выбранную форму
     this.controlPoints = [];
     this.bezierCurves = [];
     this.selectedPoint = null;
     this.savedImageData = null;
+    this.startX = 0; // Начальная координата X
+    this.startY = 0; // Начальная координата Y
     this.init();
   }
 
@@ -58,6 +61,14 @@ class CanvasDrawer {
     this.eraseBtn.addEventListener("click", () => this.toggleEraser());
     this.fillBtn.addEventListener("click", () => this.toggleFillMode());
     this.bezierBtn.addEventListener("click", () => this.toggleBezierMode());
+    
+    // Добавляем обработчик изменения режима рисования
+    this.drawingModeSelect.addEventListener("change", (e) => this.setDrawingMode(e.target.value));
+  }
+
+  // Метод для изменения режима рисования
+  setDrawingMode(mode) {
+    this.currentShape = mode;
   }
 
   startPosition(e) {
@@ -81,6 +92,8 @@ class CanvasDrawer {
     } else {
       this.painting = true;
       if (!this.erasing) {
+        this.startX = x; // Сохраняем начальную координату X
+        this.startY = y; // Сохраняем начальную координату Y
         this.drawingCtx.beginPath();
         this.drawingCtx.moveTo(x, y);
       }
@@ -92,52 +105,156 @@ class CanvasDrawer {
     this.painting = false;
     this.selectedPoint = null;
     this.drawingCtx.beginPath();
-  }
+  } 
 
-  draw(e) {
-    const x = e.clientX - this.canvas.offsetLeft;
-    const y = e.clientY - this.canvas.offsetTop;
+// Также убедитесь, что метод draw правильно вызывает эти функции
+draw(e) {
+  const x = e.clientX - this.canvas.offsetLeft;
+  const y = e.clientY - this.canvas.offsetTop;
 
-    if (!this.painting && !this.selectedPoint) return;
+  if (!this.painting && !this.selectedPoint) return;
 
-    if (this.selectedPoint) {
+  if (this.selectedPoint) {
       this.selectedPoint.x = x;
       this.selectedPoint.y = y;
       this.redrawCanvas();
-    } else if (this.painting && !this.drawingBezier) {
-      const ctx = this.erasing ? this.ctx : this.drawingCtx;
-      ctx.lineWidth = this.thicknessRange.value;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = this.erasing ? "#f0f0f0" : this.colorPicker.value;
-
-      if (this.erasing) {
-        ctx.clearRect(
-          x - this.thicknessRange.value / 2,
-          y - this.thicknessRange.value / 2,
-          this.thicknessRange.value,
-          this.thicknessRange.value
-        );
-        this.drawingCtx.clearRect(
-          x - this.thicknessRange.value / 2,
-          y - this.thicknessRange.value / 2,
-          this.thicknessRange.value,
-          this.thicknessRange.value
-        );
-      } else {
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y);
+  } else if (this.painting && !this.drawingBezier) {
+      switch (this.currentShape) {
+          case "free":
+              this.drawFreeLine(x, y);
+              break;
+          case "circle":
+              this.drawCircle(x, y);
+              break;
+          case "square":
+              this.drawSquare(x, y);
+              break;
+          case "rectangle":
+              this.drawRectangle(x, y);
+              break;
+          case "triangle":
+              this.drawTriangle(x, y);
+              break;
       }
-
       this.updateMainCanvas();
+  }
+}
+
+  drawFreeLine(x, y) {
+    const ctx = this.erasing ? this.ctx : this.drawingCtx;
+    ctx.lineWidth = this.thicknessRange.value;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = this.erasing ? "#f0f0f0" : this.colorPicker.value;
+
+    if (this.erasing) {
+      ctx.clearRect(
+        x - this.thicknessRange.value / 2,
+        y - this.thicknessRange.value / 2,
+        this.thicknessRange.value,
+        this.thicknessRange.value
+      );
+      this.drawingCtx.clearRect(
+        x - this.thicknessRange.value / 2,
+        y - this.thicknessRange.value / 2,
+        this.thicknessRange.value,
+        this.thicknessRange.value
+      );
+    } else {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
     }
   }
 
-  updateMainCanvas() {
-    this.ctx.drawImage(this.drawingCanvas, 0, 0);
+
+
+drawRectangle(x, y) {
+  // Очищаем холст перед рисованием
+  this.drawingCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  
+  const width = Math.abs(x - this.startX);
+  const height = Math.abs(y - this.startY);
+  const rectX = Math.min(this.startX, x);
+  const rectY = Math.min(this.startY, y);
+  
+  this.drawingCtx.beginPath();
+  this.drawingCtx.lineWidth = this.thicknessRange.value;
+  this.drawingCtx.strokeStyle = this.colorPicker.value;
+  this.drawingCtx.fillStyle = 'transparent';
+  this.drawingCtx.setLineDash([]); // Сплошная линия
+  this.drawingCtx.rect(rectX, rectY, width, height);
+  this.drawingCtx.stroke();
+}
+
+
+drawCircle(x, y) {
+  // Очищаем холст перед рисованием
+  this.drawingCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  
+  const radius = Math.sqrt(
+      Math.pow(x - this.startX, 2) + 
+      Math.pow(y - this.startY, 2)
+  );
+  
+  this.drawingCtx.beginPath();
+  this.drawingCtx.lineWidth = this.thicknessRange.value;
+  this.drawingCtx.strokeStyle = this.colorPicker.value;
+  this.drawingCtx.fillStyle = 'transparent';
+  this.drawingCtx.setLineDash([]); // Сплошная линия
+  this.drawingCtx.arc(this.startX, this.startY, radius, 0, 2 * Math.PI);
+  this.drawingCtx.stroke();
+}
+
+drawTriangle(x, y) {
+  // Очищаем холст перед рисованием
+  this.drawingCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  
+  this.drawingCtx.beginPath();
+  this.drawingCtx.lineWidth = this.thicknessRange.value;
+  this.drawingCtx.strokeStyle = this.colorPicker.value;
+  this.drawingCtx.fillStyle = 'transparent';
+  this.drawingCtx.setLineDash([]); // Сплошная линия
+  
+  this.drawingCtx.moveTo(this.startX, this.startY);
+  this.drawingCtx.lineTo(x, y);
+  this.drawingCtx.lineTo(this.startX - (x - this.startX), y);
+  this.drawingCtx.closePath();
+  this.drawingCtx.stroke();
+}
+
+drawSquare(x, y) {
+  // Очищаем холст перед рисованием
+  this.drawingCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  
+  const side = Math.max(
+      Math.abs(x - this.startX),
+      Math.abs(y - this.startY)
+  );
+  
+  const squareX = x > this.startX ? this.startX : this.startX - side;
+  const squareY = y > this.startY ? this.startY : this.startY - side;
+  
+  this.drawingCtx.beginPath();
+  this.drawingCtx.lineWidth = this.thicknessRange.value;
+  this.drawingCtx.strokeStyle = this.colorPicker.value;
+  this.drawingCtx.fillStyle = 'transparent';
+  this.drawingCtx.setLineDash([]); // Сплошная линия
+  this.drawingCtx.rect(squareX, squareY, side, side);
+  this.drawingCtx.stroke();
+}
+
+updateMainCanvas() {
+  this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  if (this.backgroundImage) {
+    // Восстанавливаем изображение на холсте перед рисованием
+    this.ctx.drawImage(this.backgroundImage, 0, 0, this.canvas.width, this.canvas.height);
+  }
+  this.ctx.drawImage(this.drawingCanvas, 0, 0);
+  if (this.bezierCurves.length > 0) {
     this.bezierCurves.forEach((curve) => this.drawBezier(curve));
   }
+}
 
   redrawCanvas() {
     if (this.savedImageData) {
@@ -150,13 +267,15 @@ class CanvasDrawer {
   }
 
   clearCanvas() {
+    this.backgroundImage = null; // Сбрасываем загруженное изображение
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.drawingCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.savedImageData = null; // Сбрасываем сохраненное состояние
     this.controlPoints = [];
     this.bezierCurves = [];
-    this.saveCanvasState(); // Save the state after clearing the canvas
-  }
-  
+    this.updateMainCanvas();
+}
+
 
   toggleBezierMode() {
     this.drawingBezier = !this.drawingBezier;
@@ -316,20 +435,16 @@ class CanvasDrawer {
       const img = new Image();
       img.onload = () => {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.drawingCtx.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
         this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
-        this.drawingCtx.clearRect(
-          0,
-          0,
-          this.drawingCanvas.width,
-          this.drawingCanvas.height
-        );
-        this.controlPoints = [];
-        this.bezierCurves = [];
+        this.backgroundImage = img; // Сохраняем изображение в backgroundImage
+        this.updateMainCanvas();
       };
       img.src = event.target.result;
     };
     reader.readAsDataURL(file);
   }
+
 
   toggleEraser() {
     this.erasing = !this.erasing;
@@ -349,5 +464,6 @@ const drawer = new CanvasDrawer(
   "clearCanvasBtn",
   "eraseBtn",
   "fillBtn",
-  "bezierBtn"
+  "bezierBtn",
+  "drawingMode"
 );
