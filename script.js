@@ -140,32 +140,32 @@ draw(e) {
   }
 }
 
-  drawFreeLine(x, y) {
-    const ctx = this.erasing ? this.ctx : this.drawingCtx;
-    ctx.lineWidth = this.thicknessRange.value;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = this.erasing ? "#f0f0f0" : this.colorPicker.value;
-
-    if (this.erasing) {
-      ctx.clearRect(
-        x - this.thicknessRange.value / 2,
-        y - this.thicknessRange.value / 2,
-        this.thicknessRange.value,
-        this.thicknessRange.value
-      );
-      this.drawingCtx.clearRect(
-        x - this.thicknessRange.value / 2,
-        y - this.thicknessRange.value / 2,
-        this.thicknessRange.value,
-        this.thicknessRange.value
-      );
-    } else {
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-    }
+drawFreeLine(x, y) {
+  const ctx = this.drawingCtx; // Всегда рисуем на временном холсте
+  ctx.lineWidth = this.thicknessRange.value;
+  ctx.lineCap = "round";
+  
+  if (this.erasing) {
+    // Включаем режим стирания
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.strokeStyle = "rgba(0,0,0,1)"; // Цвет стирания не важен, так как мы стираем
+  } else {
+    // Включаем режим рисования
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = this.colorPicker.value;
   }
+
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+
+  if (!this.erasing) {
+    // Если мы рисуем, а не стираем, обновляем основной холст после рисования
+    this.updateMainCanvas();
+  }
+}
+
 
 
 
@@ -361,18 +361,23 @@ updateMainCanvas() {
     const x = e.clientX - this.canvas.offsetLeft;
     const y = e.clientY - this.canvas.offsetTop;
     const fillColor = this.hexToRgb(this.colorPicker.value);
-    const imageData = this.ctx.getImageData(
-      0,
-      0,
-      this.canvas.width,
-      this.canvas.height
-    );
+  
+    // Выполняем заливку на drawingCanvas
+    const imageData = this.drawingCtx.getImageData(0, 0, this.canvas.width, this.canvas.height);
     const targetColor = this.getPixelColor(imageData, x, y);
     if (this.colorsMatch(targetColor, fillColor)) return;
+  
     this.floodFill(imageData, x, y, targetColor, fillColor);
-    this.ctx.putImageData(imageData, 0, 0);
+  
+    // Обновляем данные drawingCtx и сохраняем их на основном canvas
+    this.drawingCtx.putImageData(imageData, 0, 0);
+    this.updateMainCanvas();
+  
+    // Сохраняем текущее состояние, чтобы заливка не сбрасывалась при рисовании других элементов
     this.saveCanvasState();
   }
+  
+  
 
   getPixelColor(imageData, x, y) {
     const index = (y * imageData.width + x) * 4;
